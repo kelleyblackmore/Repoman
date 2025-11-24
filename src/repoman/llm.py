@@ -181,9 +181,7 @@ Provide a clear analysis and actionable suggestions."""
 
         return self.generate(prompt)
 
-    def generate_code_refactor(
-        self, code: str, instructions: str
-    ) -> str:
+    def generate_code_refactor(self, code: str, instructions: str) -> str:
         """
         Generate refactored code.
 

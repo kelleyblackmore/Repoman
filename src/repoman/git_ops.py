@@ -163,17 +163,37 @@ class GitOperations:
             "base": "main",
         }
 
-    def apply_diff(self, diff_content: str) -> None:
+    def apply_diff(self, diff_content: str, validate: bool = True) -> None:
         """
         Apply a git diff.
 
         Args:
             diff_content: Diff content to apply
+            validate: Whether to validate diff before applying (recommended)
 
         Raises:
             GitCommandError: If diff cannot be applied
+            ValueError: If diff validation fails
         """
+        if validate:
+            # Basic validation: check if diff looks valid
+            if not diff_content.strip():
+                raise ValueError("Empty diff content")
+
+            # Check for common git diff markers
+            lines = diff_content.split("\n")
+            has_diff_marker = any(
+                line.startswith(("diff --git", "---", "+++", "@@")) for line in lines
+            )
+            if not has_diff_marker:
+                raise ValueError("Invalid diff format: missing git diff markers")
+
         try:
+            # Use --check first to validate without applying
+            if validate:
+                self.repo.git.apply(["--check", "--3way"], input=diff_content.encode())
+
+            # Actually apply the diff
             self.repo.git.apply(["--3way"], input=diff_content.encode())
         except GitCommandError as e:
             raise GitCommandError(f"Failed to apply diff: {e}")

@@ -1,0 +1,77 @@
+name: Scheduled Repo Agent
+
+on:
+  schedule:
+    # Run every day at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:  # Allow manual triggers
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for git operations
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "Repoman Bot"
+          git config --global user.email "repoman@github-actions.bot"
+
+      - name: Run agent status check
+        run: |
+          python -m src.repoman.cli status
+
+      - name: Execute scheduled tasks
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # Example: Analyze codebase
+          python -m src.repoman.cli analyze --patterns "*.py" "*.js"
+          
+          # Add your custom tasks here
+          # python -m src.repoman.cli task "your task description"
+
+      - name: Commit and push changes
+        if: success()
+        run: |
+          if [[ -n $(git status -s) ]]; then
+            git add .
+            git commit -m "[Repoman] Automated changes from scheduled run"
+            git push
+          else
+            echo "No changes to commit"
+          fi
+
+      - name: Create Pull Request (optional)
+        if: success() && false  # Set to true to enable PR creation
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: '[Repoman] Automated improvements'
+          branch: repoman/scheduled-updates
+          title: '[Repoman] Automated Repository Updates'
+          body: |
+            Automated changes created by Repoman agent.
+            
+            This PR was created by the scheduled autonomous agent run.
+            Please review the changes before merging.
+          labels: automated, repoman
